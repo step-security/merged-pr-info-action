@@ -44,7 +44,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: step-security/merged-pr-info-action@v1
         id: merged-pr-info
         with:
