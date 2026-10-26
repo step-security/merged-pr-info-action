@@ -1,0 +1,111 @@
+# The YAML contains definitions of inputs of the composite GitHub Action.
+name: "Get the merged pull request information"
+description: "Get information about the pull request merged into the default branch"
+author: 'step-security'
+
+branding:
+  icon: "code"
+  color: "blue"
+
+inputs:
+  github-token:
+    description: "GitHub token"
+    required: true
+
+outputs:
+  pull-request-number:
+    description: "The pull request number of the pull request created by the composite GitHub Action"
+    value: ${{ steps.get_pr_number.outputs.result }}
+  pull-request-creator:
+    description: "The GitHub account name who created the pull request"
+    value: ${{ steps.get_pr_creator.outputs.result }}
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Subscription check
+      env:
+        REPO_PRIVATE: ${{ github.event.repository.private }}
+      run: |
+        # validate subscription status
+        UPSTREAM="yu-iskw/merged-pr-info-action"
+        ACTION_REPO="${GITHUB_ACTION_REPOSITORY:-}"
+        DOCS_URL="https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions"
+
+        echo ""
+        echo -e "\033[1;36mStepSecurity Maintained Action\033[0m"
+        echo "Secure drop-in replacement for $UPSTREAM"
+        if [ "$REPO_PRIVATE" = "false" ]; then
+          echo -e "\033[32m✓ Free for public repositories\033[0m"
+        fi
+        echo -e "\033[36mLearn more:\033[0m $DOCS_URL"
+        echo ""
+
+        if [ "$REPO_PRIVATE" != "false" ]; then
+          SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}"
+
+          if [ "$SERVER_URL" != "https://github.com" ]; then
+            BODY=$(printf '{"action":"%s","ghes_server":"%s"}' "$ACTION_REPO" "$SERVER_URL")
+          else
+            BODY=$(printf '{"action":"%s"}' "$ACTION_REPO")
+          fi
+
+          API_URL="https://agent.api.stepsecurity.io/v1/github/$GITHUB_REPOSITORY/actions/maintained-actions-subscription"
+
+          RESPONSE=$(curl --max-time 3 -s -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "$API_URL" -o /dev/null) && CURL_EXIT_CODE=0 || CURL_EXIT_CODE=$?
+
+          if [ $CURL_EXIT_CODE -ne 0 ]; then
+            echo "Timeout or API not reachable. Continuing to next step."
+          elif [ "$RESPONSE" = "403" ]; then
+            echo -e "::error::\033[1;31mThis action requires a StepSecurity subscription for private repositories.\033[0m"
+            echo -e "::error::\033[31mLearn how to enable a subscription: $DOCS_URL\033[0m"
+            exit 1
+          fi
+        fi
+      shell: bash
+    # We have to chec kout the default branch outside the composite GitHub Action.
+    - name: "Checkout"
+      uses: actions/checkout@v7
+    - name: "Get the commit hash of the merged pull request"
+      id: get_commit_hash
+      shell: bash
+      run: |
+        echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+    # Get the pull request number from the commit hash using github-script
+    - name: "Search the pull request number by the commit hash of the merged pull request"
+      id: get_pr_number
+      uses: actions/github-script@v9
+      with:
+        github-token: ${{ inputs.github-token }}
+        debug: true
+        script: |
+          const commit_hash = "${{ steps.get_commit_hash.outputs.commit_hash }}";
+          const { data: { items } } = await github.rest.search.issuesAndPullRequests({
+            q: `${commit_hash} type:pr is:merged`
+          });
+          const pr_number = items[0].number;
+          console.log(`The pull request number is ${pr_number}`);
+          return pr_number;
+    # Get the GitHub account name who created the merged pull request by the pull request number
+    - name: "Get the GitHub account name who created the merged pull request"
+      id: get_pr_creator
+      uses: actions/github-script@v9
+      with:
+        github-token: ${{ inputs.github-token }}
+        debug: true
+        result-encoding: string
+        script: |
+          const pr_number = "${{ steps.get_pr_number.outputs.result }}";
+          const pr = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: pr_number
+          });
+          const pr_creator = pr.data.user.login;
+          console.log(`The GitHub account name who created the merged pull request is ${pr_creator}`);
+          return pr_creator;
