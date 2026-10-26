@@ -44,13 +44,13 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: step-security/merged-pr-info-action@v1.0.1
+      - uses: actions/checkout@v4
+      - uses: step-security/merged-pr-info-action@v1
         id: merged-pr-info
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Comment to the merged pull request"
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           debug: true
