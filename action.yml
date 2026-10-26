@@ -70,7 +70,7 @@ runs:
       shell: bash
     # We have to chec kout the default branch outside the composite GitHub Action.
     - name: "Checkout"
-      uses: actions/checkout@v7
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: "Get the commit hash of the merged pull request"
       id: get_commit_hash
       shell: bash
@@ -79,7 +79,7 @@ runs:
     # Get the pull request number from the commit hash using github-script
     - name: "Search the pull request number by the commit hash of the merged pull request"
       id: get_pr_number
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       with:
         github-token: ${{ inputs.github-token }}
         debug: true
@@ -94,7 +94,7 @@ runs:
     # Get the GitHub account name who created the merged pull request by the pull request number
     - name: "Get the GitHub account name who created the merged pull request"
       id: get_pr_creator
-      uses: actions/github-script@v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       with:
         github-token: ${{ inputs.github-token }}
         debug: true
